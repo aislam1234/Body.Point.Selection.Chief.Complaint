@@ -1,72 +1,176 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import OptionButton from "./option-button";
 import SaveContinueButton from "./save-continue-button";
 import { IBodyPoint } from "./left-panel";
+import { QuestionAnswer } from "./body-point-answer-mapper";
+
+interface Question {
+  id: string;  // Add unique id to each question
+  question: string;
+  options: string[];
+  selected?: string;
+}
 
 interface Props {
   selected: string;
   setSelected: (value: string) => void;
   options: string[];
   currentBodyPoint: IBodyPoint;
-  navigateToNextBodyPoint: () => void;
   isCurrentBodyPointIsTheLast?: boolean;
   nextBodyPointLabel?: string;
+  answer: QuestionAnswer[]; // This should be an array of QuestionAnswer objects
+  setAnswer: (value: QuestionAnswer[]) => void;
+  navigateToNextBodyPoint: () => void;
 }
 
 const QuestionBox = ({
-  selected,
-  setSelected,
-  options,
   currentBodyPoint,
   navigateToNextBodyPoint,
   isCurrentBodyPointIsTheLast = false,
   nextBodyPointLabel = "",
+  answer,
+  setAnswer,
 }: Props) => {
+  const [questions, setQuestions] = useState<Question[]>([currentBodyPoint?.questions[0]]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handleSelect = (id: string, selectedAnswer: string) => {
+    // Find the question by id
+    const updatedQuestions = [...questions];
+    const questionIndex = updatedQuestions.findIndex(q => q.id === id);
+    if (questionIndex === -1) return;
+
+    updatedQuestions[questionIndex].selected = selectedAnswer;
+
+    // Save the selected answer for the current question using the id
+    const newAnswer: QuestionAnswer = {
+      painLocationLabel: currentBodyPoint.label,
+      questionId: id,  // Use questionId for uniqueness
+      question: updatedQuestions[questionIndex].question,
+      answer: selectedAnswer,
+    };
+
+    // Add the new answer to the list, ensuring 'answer' is an array of objects
+    const updatedAnswers = [...answer];
+    const existingAnswerIndex = updatedAnswers.findIndex(a => a.questionId === id);
+    if (existingAnswerIndex !== -1) {
+      updatedAnswers[existingAnswerIndex] = newAnswer;  // Update existing answer if already present
+    } else {
+      updatedAnswers.push(newAnswer);  // Otherwise, add the new answer
+    }
+
+    setAnswer(updatedAnswers);
+
+    // Only add next question if this is the last question in the set
+    if (questionIndex === updatedQuestions.length - 1 && updatedQuestions.length < 5) {
+      const newQuestion: Question = getNextQuestion(updatedQuestions.length);
+      setTimeout(() => setQuestions([...updatedQuestions, newQuestion]), 400);
+    } else {
+      setQuestions(updatedQuestions);
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    const updatedQuestions = [...questions];
+    const questionIndex = updatedQuestions.findIndex(q => q.id === id);
+    if (questionIndex !== -1) {
+      updatedQuestions[questionIndex].selected = undefined;
+
+      // Update the answer for the edited question, keeping previous answers intact
+      const editedAnswerIndex = answer.findIndex(
+        (a) => a.questionId === id && a.painLocationLabel === currentBodyPoint.label
+      );
+      if (editedAnswerIndex !== -1) {
+        const updatedAnswers = [...answer];
+        updatedAnswers[editedAnswerIndex].answer = ""; // Clear the answer for this question
+        setAnswer(updatedAnswers);
+      }
+
+      setQuestions(updatedQuestions);
+    }
+  };
+
+  const getNextQuestion = (index: number): Question => {
+    const questionSet = currentBodyPoint?.questions || [];
+    return questionSet[index];
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [questions]);
+
+  const saveAndContinueHandler = () => {
+    if (isCurrentBodyPointIsTheLast) {
+      // Save the data
+      console.log("Saving data:", questions);
+    } else {
+      navigateToNextBodyPoint();
+    }
+  };
+
   return (
     <div className="question-box">
-      <div>
-        <div className="header">
-          <span className="title">Answering {currentBodyPoint?.label}</span>
-          {!isCurrentBodyPointIsTheLast && (
-            <button className="skip-button" onClick={navigateToNextBodyPoint}>
-              Skip to {nextBodyPointLabel}
-            </button>
-          )}
-        </div>
+      <div className="header">
+        <span className="title">Answering {currentBodyPoint?.label}</span>
+        {!isCurrentBodyPointIsTheLast && (
+          <button className="skip-button" onClick={navigateToNextBodyPoint}>
+            Skip to {nextBodyPointLabel}
+          </button>
+        )}
+      </div>
 
-        <hr className="divider" />
+      <hr className="divider" />
 
-        <div className="question-area">
-          <h3 className="question">When did the pain start?</h3>
-
-          <div className="options-wrapper">
-            <div className="options-grid">
-              {options.map((opt) => (
-                <OptionButton
-                  key={opt}
-                  label={opt}
-                  selected={selected === opt}
-                  onClick={() => setSelected(opt)}
-                />
-              ))}
+      <div className="chat-history">
+        {questions.map((q) => (
+          q?.question && (  // Check if q and q.question are defined
+            <div key={q.id} className="chat-bubble-row">
+              <div className="question-text">{q.question}</div>
+              {q.selected ? (
+                <div className="user-answer">
+                  <span className="answer-bubble">{q.selected}</span>
+                  <button className="edit-button" onClick={() => handleEdit(q.id)}>
+                    Edit
+                  </button>
+                </div>
+              ) : (
+                <div className="options-wrapper">
+                  <div className="options-grid">
+                    {q.options.map((opt) => (
+                      <OptionButton
+                        key={opt}
+                        label={opt}
+                        selected={false}
+                        onClick={() => handleSelect(q.id, opt)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
+          )
+        ))}
+        <div ref={chatEndRef} />
       </div>
 
       <div className="footer">
-        <SaveContinueButton />
+        <SaveContinueButton
+          isCurrentBodyPointIsTheLast={isCurrentBodyPointIsTheLast}
+          saveAndContinueHandler={saveAndContinueHandler}
+        />
       </div>
 
       <style jsx>{`
         .question-box {
           background: white;
-          padding: 1rem;
+          padding: 1rem 1rem 0 1rem;
           border-radius: 8px;
           flex-grow: 1;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
+          height: 100%;
+          overflow: hidden;
         }
 
         .header {
@@ -96,20 +200,54 @@ const QuestionBox = ({
 
         .divider {
           border: none;
-          border-top: 2px solid #f5f5f5;
-          margin-bottom: 1.5rem;
+          border-top: 2px solid #dcdcdc;
+          margin-bottom: 1rem;
         }
 
-        .question-area {
-          background-color:rgb(255, 255, 255);
-          padding: 2rem;
-          border-radius: 10px;
-          text-align: center;
+        .chat-history {
+          flex-grow: 1;
+          overflow-y: auto;
+          padding-right: 0.5rem;
         }
 
-        .question {
-          margin-bottom: 1.5rem;
-          font-size: 24px;
+        .chat-bubble-row {
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 2rem;
+        }
+
+        .question-text {
+          font-size: 20px;
+          color: #333;
+          text-align: left;
+          margin-bottom: 1rem;
+        }
+
+        .user-answer {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+        }
+
+        .answer-bubble {
+          background-color: #1d3f77;
+          color: white;
+          border-radius: 20px;
+          padding: 0.5rem 1rem;
+          font-size: 16px;
+          display: inline-block;
+          max-width: 70%;
+          text-align: left;
+        }
+
+        .edit-button {
+          background: none;
+          border: none;
+          color: #1d3f77;
+          margin-left: 10px;
+          cursor: pointer;
+          font-size: 14px;
+          text-decoration: underline;
         }
 
         .options-wrapper {
@@ -142,20 +280,12 @@ const QuestionBox = ({
         }
 
         @media (max-width: 600px) {
-          .question-area {
-            padding: 1rem;
-          }
-
-          .question {
-            font-size: 20px;
-          }
-
-          .title {
+          .question-text {
             font-size: 18px;
           }
 
-          .skip-button {
-            font-size: 16px;
+          .answer-bubble {
+            font-size: 15px;
           }
         }
       `}</style>

@@ -1,6 +1,7 @@
 import React from "react";
 import TabSection from "./tab-section";
 import QuestionBox from "./question-box";
+import { QuestionAnswer } from "./body-point-answer-mapper";
 
 export interface IQuestion {
   id: string;
@@ -22,6 +23,8 @@ interface Props {
   options: string[];
   bodyPoints: IBodyPoint[];
   currentBodyPointIndex: number;
+  answer: QuestionAnswer[];
+  setAnswer: (value: QuestionAnswer[]) => void;
   setSelected: (value: string) => void;
   navigateToNextBodyPoint: () => void;
 }
@@ -31,6 +34,8 @@ const LeftPanel = ({
   options, 
   bodyPoints, 
   currentBodyPointIndex,
+  answer,
+  setAnswer,
   setSelected, 
   navigateToNextBodyPoint
 }: Props) => {
@@ -43,6 +48,8 @@ const LeftPanel = ({
         currentBodyPoint={bodyPoints[currentBodyPointIndex]}
         isCurrentBodyPointIsTheLast={currentBodyPointIndex === bodyPoints?.length - 1}
         nextBodyPointLabel={bodyPoints[currentBodyPointIndex + 1]?.label || ""}
+        answer={answer}
+        setAnswer={setAnswer}
         setSelected={setSelected}
         navigateToNextBodyPoint={navigateToNextBodyPoint}
       />

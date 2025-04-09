@@ -1,7 +1,8 @@
 import { IBodyPoint } from "./left-panel";
 
-type QuestionAnswer = {
+export type QuestionAnswer = {
     painLocationLabel: string;
+    questionId: string;
     question: string;
     answer: string;
 };
@@ -14,6 +15,7 @@ export class BodyPointAnswerMapper {
         points.forEach((point) => {
             point.questions.forEach((q) => {
                 result.push({
+                    questionId: q.id,
                     painLocationLabel: point.label,
                     question: q.question,
                     answer: "",

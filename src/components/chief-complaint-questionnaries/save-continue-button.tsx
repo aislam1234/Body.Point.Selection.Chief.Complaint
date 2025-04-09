@@ -1,6 +1,14 @@
 import React from "react";
 
-const SaveContinueButton = () => (
+interface Props {
+  isCurrentBodyPointIsTheLast?: boolean;
+  saveAndContinueHandler: () => void;
+}
+
+const SaveContinueButton = ({
+  isCurrentBodyPointIsTheLast, 
+  saveAndContinueHandler
+}: Props) => (
   <button
     style={{
       background: "#1d3f77",
@@ -11,9 +19,13 @@ const SaveContinueButton = () => (
       cursor: "pointer",
       fontWeight: 600,
       fontSize: "18px",
+      minWidth: "200px",
+    }}
+    onClick={() => {
+      saveAndContinueHandler();
     }}
   >
-    Save & Continue
+    Save {isCurrentBodyPointIsTheLast === false && " & Continue" }
   </button>
 );
 
