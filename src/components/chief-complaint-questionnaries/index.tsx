@@ -72,8 +72,6 @@ const ChiefComplaintQuestionnaire: React.FC = () => {
     }
   };
 
-  console.log(answer);
-
   return (
     <LayoutContainer>
       <LeftPanel

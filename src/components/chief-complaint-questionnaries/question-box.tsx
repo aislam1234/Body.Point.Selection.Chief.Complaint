@@ -4,13 +4,6 @@ import SaveContinueButton from "./save-continue-button";
 import { IBodyPoint } from "./left-panel";
 import { QuestionAnswer } from "./body-point-answer-mapper";
 
-interface Question {
-  id: string;  // Add unique id to each question
-  question: string;
-  options: string[];
-  selected?: string;
-}
-
 interface Props {
   selected: string;
   setSelected: (value: string) => void;
@@ -18,7 +11,7 @@ interface Props {
   currentBodyPoint: IBodyPoint;
   isCurrentBodyPointIsTheLast?: boolean;
   nextBodyPointLabel?: string;
-  answer: QuestionAnswer[]; // This should be an array of QuestionAnswer objects
+  answer: QuestionAnswer[];
   setAnswer: (value: QuestionAnswer[]) => void;
   navigateToNextBodyPoint: () => void;
 }
@@ -31,78 +24,56 @@ const QuestionBox = ({
   answer,
   setAnswer,
 }: Props) => {
-  const [questions, setQuestions] = useState<Question[]>([currentBodyPoint?.questions[0]]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const currentQuestion = currentBodyPoint.questions[currentQuestionIndex];
+
+  useEffect(() => {
+    setCurrentQuestionIndex(0);
+  }, [currentBodyPoint]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [currentQuestionIndex]);
+
   const handleSelect = (id: string, selectedAnswer: string) => {
-    // Find the question by id
-    const updatedQuestions = [...questions];
-    const questionIndex = updatedQuestions.findIndex(q => q.id === id);
-    if (questionIndex === -1) return;
-
-    updatedQuestions[questionIndex].selected = selectedAnswer;
-
-    // Save the selected answer for the current question using the id
     const newAnswer: QuestionAnswer = {
       painLocationLabel: currentBodyPoint.label,
-      questionId: id,  // Use questionId for uniqueness
-      question: updatedQuestions[questionIndex].question,
+      questionId: id,
+      question: currentQuestion.question,
       answer: selectedAnswer,
     };
 
-    // Add the new answer to the list, ensuring 'answer' is an array of objects
     const updatedAnswers = [...answer];
-    const existingAnswerIndex = updatedAnswers.findIndex(a => a.questionId === id);
-    if (existingAnswerIndex !== -1) {
-      updatedAnswers[existingAnswerIndex] = newAnswer;  // Update existing answer if already present
+    const existingIndex = updatedAnswers.findIndex(
+      (a) => a.questionId === id && a.painLocationLabel === currentBodyPoint.label
+    );
+
+    if (existingIndex !== -1) {
+      updatedAnswers[existingIndex] = newAnswer;
     } else {
-      updatedAnswers.push(newAnswer);  // Otherwise, add the new answer
+      updatedAnswers.push(newAnswer);
     }
 
     setAnswer(updatedAnswers);
 
-    // Only add next question if this is the last question in the set
-    if (questionIndex === updatedQuestions.length - 1 && updatedQuestions.length < 5) {
-      const newQuestion: Question = getNextQuestion(updatedQuestions.length);
-      setTimeout(() => setQuestions([...updatedQuestions, newQuestion]), 400);
-    } else {
-      setQuestions(updatedQuestions);
+    if (currentQuestionIndex < currentBodyPoint.questions.length - 1) {
+      setTimeout(() => setCurrentQuestionIndex((prev) => Math.max(prev + 1, currentQuestionIndex + 1)), 400);
     }
   };
 
   const handleEdit = (id: string) => {
-    const updatedQuestions = [...questions];
-    const questionIndex = updatedQuestions.findIndex(q => q.id === id);
-    if (questionIndex !== -1) {
-      updatedQuestions[questionIndex].selected = undefined;
-
-      // Update the answer for the edited question, keeping previous answers intact
-      const editedAnswerIndex = answer.findIndex(
-        (a) => a.questionId === id && a.painLocationLabel === currentBodyPoint.label
-      );
-      if (editedAnswerIndex !== -1) {
-        const updatedAnswers = [...answer];
-        updatedAnswers[editedAnswerIndex].answer = ""; // Clear the answer for this question
-        setAnswer(updatedAnswers);
-      }
-
-      setQuestions(updatedQuestions);
+    const index = currentBodyPoint.questions.findIndex((q) => q.id === `${id}`);
+    
+    if (index !== -1) {
+      setCurrentQuestionIndex(index);
     }
   };
 
-  const getNextQuestion = (index: number): Question => {
-    const questionSet = currentBodyPoint?.questions || [];
-    return questionSet[index];
-  };
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [questions]);
-
   const saveAndContinueHandler = () => {
     if (isCurrentBodyPointIsTheLast) {
-      // Save the data
-      console.log("Saving data:", questions);
+      console.log("Saving data:", answer);
     } else {
       navigateToNextBodyPoint();
     }
@@ -111,7 +82,7 @@ const QuestionBox = ({
   return (
     <div className="question-box">
       <div className="header">
-        <span className="title">Answering {currentBodyPoint?.label}</span>
+        <span className="title">Answering {currentBodyPoint.label}</span>
         {!isCurrentBodyPointIsTheLast && (
           <button className="skip-button" onClick={navigateToNextBodyPoint}>
             Skip to {nextBodyPointLabel}
@@ -122,13 +93,23 @@ const QuestionBox = ({
       <hr className="divider" />
 
       <div className="chat-history">
-        {questions.map((q) => (
-          q?.question && (  // Check if q and q.question are defined
+        {currentBodyPoint.questions.map((q, index) => {
+          const answered = answer.find(
+            (a) => a.questionId === q.id && a.painLocationLabel === currentBodyPoint.label
+          );
+
+          // Show all answered questions and allow editing
+          const shouldRender =
+            index <= currentQuestionIndex || answered?.answer;
+
+          if (!shouldRender) return null;
+
+          return (
             <div key={q.id} className="chat-bubble-row">
               <div className="question-text">{q.question}</div>
-              {q.selected ? (
+              {answered?.answer ? (
                 <div className="user-answer">
-                  <span className="answer-bubble">{q.selected}</span>
+                  <span className="answer-bubble">{answered.answer}</span>
                   <button className="edit-button" onClick={() => handleEdit(q.id)}>
                     Edit
                   </button>
@@ -148,8 +129,8 @@ const QuestionBox = ({
                 </div>
               )}
             </div>
-          )
-        ))}
+          );
+        })}
         <div ref={chatEndRef} />
       </div>
 
